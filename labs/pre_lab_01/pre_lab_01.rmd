@@ -237,6 +237,6 @@ No code here; I want you to provide three questions that this data suggests to y
 
 1.  What department has the maximum seats? 
 
-2.  
+2.  How can you alphabetically organize the department, classes without using desc/asc?
 
-3.  
+3.  Which department has the highest mean seats?
