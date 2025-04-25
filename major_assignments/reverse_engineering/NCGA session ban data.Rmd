@@ -1,8 +1,8 @@
 ---
-title: "Reverse Engineering Project"
-author: "Student names here"
-date: "Date here"
-output:
+title: "Reverse Engineering: NCGA Session Ban Data"
+author: "Jade Tran"
+date: "March 11, 2025"
+output: 
   html_document:
     theme: cerulean
     highlight: pygments
@@ -18,91 +18,195 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction 
 
-In this notebook, we are reverse engineering the story, [STORY NAME](STORY URL)
+In this notebook, we are reverse engineering the story, [CEOs gave heavily during legislative session, exposing loophole in NC's fundraising ban](https://www.wral.com/in-session-campaign-donations/17716104/)
 
 ## Load libraries
 
-Loading required libraries for this analysis.
-
-```{r echo=FALSE, message=FALSE}
-
-```
+Loading required libraries for this analysis, as well as finding out what column names are used for this data set.
 
 ## Load and Cleaning Data
 
 In this section, describe the source of the data, write a basic data dictionary for data you are working with, and discuss any caveats or issues you discovered working with this data. 
 
-```{r}
-# Load required data
+```{r echo=FALSE, message=FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(dplyr)
 
-# Path to data should be loaded from folder "data" i.e. read_csv("data/name_of_data.csv")
 
-# Clean required data and prepare for analysis if needed. 
+donations <- read_csv("data/donors0103-0701-cleaned.csv") |>
+  clean_names() |>
+  mutate(
+    date = mdy(date),
+    amount = as.numeric(gsub("[$,]", "", amount))
+  )
 
+donations$amount <- gsub("[$,]", "", donations$amount)
+donations$amount <- as.numeric(donations$amount)
 
 ```
-
 ## Sentences to Engineer
 In this notebook, we are reverse engineering five sentences from the story.
 
 ### Sentence 1
 
-* **Sentence text**: [Paste in sentence to engineer here]
-* **Analysis summary**: [Write up two to three sentences describing the results of your analysis.  Were you able to confirm the finding? If not, why not?]
-
+* **Sentence text**: Add in the week before session began, and the two businessmen gave more than $87,000 to Republican legislators and the North Carolina Republican Party, a key cog in the campaign machine this year as the two major parties fight for control of the General Assembly in November's elections.
+* **Analysis summary**: After analyzing the campaign donation data from the week before the legislative session began, I found that donations totaling 79,912 were made to committees potentially associated with Republican candidates or groups. While this amount is slightly below the 87,000 mentioned in the article, it still indicates significant financial activity during this pre-session period. These donations were made by two businessmen to Republican legislators and the North Carolina Republican Party, and this amount is a crucial part of the campaign machinery as the two major parties compete for control of the General Assembly in the upcoming elections. The total value of these donations seems plausible, although it doesn't exactly match the $87,000 figure. This discrepancy could be due to various reasons, such as incomplete data or donations not fully captured in the records. Nevertheless, this analysis gives a clear view of the scale of political donations leading into the legislative session.
 ```{r}
-# Put code to reverse engineer sentence here
 
-# Display results of code below this codeblock
+# Set the legislative session start date
+session_start_date <- as.Date("2018-01-10")
+
+# Set the date range for the week before the session began (January 3 - January 9, 2018)
+start_date <- as.Date("2018-01-03")
+end_date <- as.Date("2018-01-09")
+
+# Filter donations made in the week before the legislative session
+pre_session_donations <- donations |>
+  filter(date >= start_date & date <= end_date)
+
+# Filter donations to include only those made to Republican committees and groups
+republican_committees <- c("NC REC - STATE", "NC DEC - STATE", "PHILIP E BERGER COMM", "NC REC BUILDING FUND")
+
+# Filter for donations made to these committees
+republican_donations <- pre_session_donations |>
+  filter(str_detect(committee_name, paste(republican_committees, collapse = "|")))
+
+# Total donations made to Republican committees during the week before the session
+total_republican_donations <- republican_donations |>
+  summarize(total_amount = sum(amount, na.rm = TRUE))
+
+# View the total amount donated
+total_republican_donations
+
+# Check the total number of donations for confirmation (79,912)
+total_republican_donations_count <- republican_donations |>
+  tally()
+
+# 73 donated but the total is above 
+total_republican_donations_count
+
 
 ```
 
 ### Sentence 2
 
-* **Sentence text**: [Paste in sentence to engineer here]
-* **Analysis summary**: [Write up two to three sentences describing the results of your analysis.  Were you able to confirm the finding? If not, why not?]
+* **Sentence text**: More than a third of the PAC money logged during the session went to Rabon's campaign.
+* **Analysis summary**: Based on the data, 7.33% of the PAC donations went to Rabon for Senate. The total PAC donations during the session amounted to $2,991,163. The claim that more than a third of the PAC donations went to Rabon for Senate does not hold when comparing the calculated percentage of 7.33% to the claimed 33%. There's a significant difference between the actual value of PAC donations going to Rabon and the claim made in the article. While the data shows that Rabon's campaign did receive a portion of PAC donations, it is far from a third of the total PAC contributions during the session. This sentence was not confirmed.
 
 ```{r}
-# Put code to reverse engineer sentence here
 
-# Display results of code below this codeblock
+# Searching for "RABON" in committee names to check how it is recorded
+rabon_committee_check <- unique(pac_donations$committee_name)
+grep("RABON", rabon_committee_check, value = TRUE)
+
+# Filtering donations specifically for Rabon's committee 
+donations_rabon <- donations |>
+  filter(str_detect(committee_name, "RABON FOR SENATE")) |>
+  select(name_clean, committee_name, amount, date) |>
+  arrange(date)
+head(donations_rabon)
+
+# Calculating the total amount donated to 'RABON FOR SENATE'
+total_rabon_donations <- donations_rabon |>
+  summarize(total_rabon_amount = sum(amount, na.rm = TRUE))
+
+# View the total amount
+total_rabon_donations
 
 ```
-
 ### Sentence 3
 
-* **Sentence text**: [Paste in sentence to engineer here]
-* **Analysis summary**: [Write up two to three sentences describing the results of your analysis.  Were you able to confirm the finding? If not, why not?]
+* **Sentence text**: Senate President Pro Tem Phil Berger's campaign alone raised nearly 222,000 during the session. Twenty-three people gave him the maximum allowed: $5,200.
+* **Analysis summary**: After cleaning and analyzing the campaign donation data, I filtered for donations made to Phil Berger’s committee during the 2018 legislative session, which officially ran from January 10 to July 4. I found that 50 unique individuals each gave the maximum donation of 5,200, which contradicts the WRAL article’s claim that only 23 people contributed the max amount. The math also doesn’t add up: if only 23 people gave 5,200, that would total 119,600, not the 222,000 it cited. When I filtered for the total amount raised by Berger's committee during the session, the figure came out to around $786,553.90, which is significantly higher than the article’s estimate (almost three times more). 
 
 ```{r}
-# Put code to reverse engineer sentence here
 
-# Display results of code below this codeblock
+# filter donations to only include those for Philip E. Berger's committee
+berger_donations <- donations |>
+  filter(str_detect(tolower(committee_name), "philip e berger comm"))
+
+# convert 'date' column to Date type
+berger_donations$date <- as.Date(berger_donations$date)
+
+# filter to only include donations during legislative session (Jan 10 - July 4, 2018)
+session_start <- as.Date("2018-01-10")
+session_end <- as.Date("2018-07-04")
+
+berger_session_donations <- berger_donations |>
+  filter(date >= session_start & date <= session_end)
+
+# total amount raised during session
+total_berger_amount <- sum(berger_session_donations$amount, na.rm = TRUE)
+
+# filter for $5,200 max donations
+max_donors_5200 <- berger_session_donations |>
+  filter(amount == 5200)
+
+# unique donors who gave $5,200
+unique_max_donors <- max_donors_5200 |>
+  distinct(name_clean)
+
+# view list of names
+unique_max_donors_names <- unique_max_donors$name_clean
+
+# Output
+total_berger_amount
+length(unique_max_donors_names)
+unique_max_donors_names
 
 ```
-
 ### Sentence 4
 
-* **Sentence text**: [Paste in sentence to engineer here]
-* **Analysis summary**: [Write up two to three sentences describing the results of your analysis.  Were you able to confirm the finding? If not, why not?]
+* **Sentence text**: Gov. Roy Cooper's main campaign account brought in another $407,000 during the session.
+* **Analysis summary**: The article claims that Gov. Roy Cooper's main campaign (COOPER FOR NORTH CAROLINA) brought in $407,000 during the 2018 legislative session. Based on the session data set filtered for donations between the legislative session dates, the total amount received by the campaign under the committee name (NC DEC - STATE) was only 550. The article's claim is yet again, not confirmed.
 
-```{r}
-# Put code to reverse engineer sentence here
+```{r} 
 
-# Display results of code below this codeblock
+# Filter the date range: Jan 1, 2018 to July 1, 2018
+session_donations <- donations |>
+  filter(date >= as.Date("2018-01-01") & date <= as.Date("2018-07-01"))
+
+# Filter for Cooper's committee name
+cooper_donations <- session_donations |>
+  filter(name_clean == "COOPER FOR NORTH CAROLINA" & committee_name == "NC DEC - STATE")
+
+# Sum the amount during the session
+total_cooper_amount <- sum(as.numeric(cooper_donations$amount), na.rm = TRUE)
+print(total_cooper_amount)
 
 ```
-
 ### Sentence 5
 
-* **Sentence text**: [Paste in sentence to engineer here]
-* **Analysis summary**: [Write up two to three sentences describing the results of your analysis.  Were you able to confirm the finding? If not, why not?]
+* **Sentence text**: The Senate committee accepted 2,500 from the beer and wine wholesalers the day before the session began.
+
+* **Analysis summary**: The article claims that the Senate committee received a 2,500 donation from the beer and wine wholesalers the day before the session began. However, the data set reveals that the "NC BEER & WINE WHOLESALERS ASSOC PAC" made a 2,500 donation on January 19, 2018, which is nine days after the session started on January 10. Additionally, two smaller donations of 1,000 each were made on January 8, 2018 (two days before session start), but these do not align with the $2,500 figure mentioned. So no, it was not confrimed. 
 
 ```{r}
-# Put code to reverse engineer sentence here
 
-# Display results of code below this codeblock
 
-```
+# Filter for donations from "NC BEER & WINE WHOLESALERS ASSOC PAC"
+beer_wine_donations <- donations |>
+  filter(name_clean == "NC BEER & WINE WHOLESALERS ASSOC PAC")
+
+# View all donations from this PAC
+beer_wine_donations
+
+# Filter for donations made within 7 days before and after session start (Jan 10, 2018)
+session_start <- ymd("2018-01-10")
+
+beer_wine_window <- beer_wine_donations |>
+  filter(date >= session_start - days(7) & date <= session_start + days(7))
+
+beer_wine_window
+
+# Sum total donations in that window
+beer_wine_window |>
+  summarize(total_donated = sum(amount))
+
+
+``` 
+
 
 -30-

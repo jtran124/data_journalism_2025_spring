@@ -113,7 +113,7 @@ This is a very basic chart. But it's hard to derive much meaning from this chart
 
 ### Task 6: Run the following code
 
-**Task** Run the following code. Explain what you see after running the code in the space below. What has changed from the last codeblock? **Answer**
+**Task** Run the following code. Explain what you see after running the code in the space below. What has changed from the last codeblock? **Answer** There is now a 'reorder' function, reordering the months based on the total calls with x still = month. 
 
 ```{r}
 baltco_911_calls_by_month |>
@@ -178,7 +178,7 @@ baltco_911_calls_by_month |>
   ggplot() +
   geom_bar(aes(x=reorder(month,total_calls), weight=total_calls)) +
   coord_flip() + 
-  theme_economist()
+  theme_foundation()
 ```
 
 Those axis titles are kind of a mess. Let's change "count" on the x axis to "total calls" and change "reorder(month,total_calls)" to "month". And while we're at it, let's add a basic title and a source as a caption. We'll use a new function, labs(), which is short for labels.
@@ -233,11 +233,15 @@ We'll put the date on the x axis and total contributions on the y axis.
 ### Task 13: Run the following code
 
 **Task** Run the following code. Explain what you see after running the code in the space below. **Answer**
-
+ 
 ```{r}
+install.packages("plotly")
+library("plotly")
 baltco_911_calls_by_date |>
   ggplot() + 
   geom_line(aes(x=date, y=total_calls))
+
+
 ```
 
 It's not super pretty, but there's a bit of a pattern here: the number of calls fluctuates between 5 and 20 a day for most of this period, and then jumps way up at certain points during the year. In particular there are spikes in July, early October and January.
@@ -271,7 +275,7 @@ baltco_911_calls_by_date |>
   geom_line(aes(x=date, y=total_calls)) + 
   scale_x_date(date_breaks = "1 week", date_labels = "%b %d") +
   theme(
-    axis.text.x = element_text(angle = 45,  hjust=1)
+    axis.text.x = element_text(angle = 90,  hjust=1.1)
   )
 ```
 
