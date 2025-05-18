@@ -1,0 +1,176 @@
+---
+title: "board_games"
+author: "Jade Tran"
+date: "May 16, 2025"
+output: html_document
+ theme: cerulean
+    highlight: pygments
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction 
+
+In this notebook, we are looking for five newsworthy questions and answers based on board game data from Kaggle. After answering these five questions, I will provide a final memo with a story pitch that developed from the data and its corresponding analysis.
+
+```{r echo=FALSE, message=FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(dplyr)
+
+colnames(bgg)
+```
+
+```{r}
+
+bgg <- read_delim(
+  "~/Desktop/jour472/data_journalism_2025_spring/major_assignments/data_analysis/bgg_dataset.csv",
+  delim = ";",
+  locale = locale(encoding = "UTF-8"),
+  trim_ws = TRUE
+) |>
+  clean_names()
+```
+## 1
+
+Q: How has the complexity/difficulty of top-rated games changed over time? In toehr words, are modern popular games getting harder to learn and play?
+
+A: The data shows that the average number of users rating popular board games has generally increased from around 231 in 2011 to a peak of about 273 in 2020. This suggests growing engagement and interest in board games over the last decade, possibly driven by the rise of board game cafes, online communities, and streaming platforms dedicated to tabletop gaming.
+
+This increasing trend indicates that board games are becoming more popular and reaching a wider audience. The peak in 2020 might also be influenced by the  pandemic, when people spent more time at home and turned to board games for entertainment. This growth in user ratings reflects a more active player base, which could be encouraging designers to create games that appeal to a broader group of community members.
+
+```{r}
+
+bgg |>
+  filter(users_rated > 1000, !is.na(year_published)) |>
+  group_by(year_published) |>
+  summarise(avg_users_rated = mean(users_rated, na.rm = TRUE)) |>
+  ggplot(aes(x = year_published, y = avg_users_rated)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(2010, 2020, by = 1)) +
+  labs(title = "Average Number of Users Rating Popular Games by Year",
+       x = "Year Published",
+       y = "Average Number of Users Rated")
+
+
+complexity_by_year <- bgg |>
+  filter(users_rated > 1000, !is.na(complexity_average)) |>
+  group_by(year_published) |>
+  summarise(avg_complexity = mean(complexity_average, na.rm = TRUE)) |>
+  arrange(desc(year_published))
+
+head(complexity_by_year, 10)  # Shows most recent 10 years
+```
+
+## 2
+
+Q: What’s the relationship between player count and rating? Do games designed for more players tend to be rated higher or lower?
+
+A: Because the correlation is around -0.1, statistically, there is a very weak negative correlation between the average number of players and average rating for popular board games. This means that games designed for larger groups tend to have slightly lower ratings on average, but the relationship is very weak and may not be practically significant.
+
+This weak negative relationship suggests that games accommodating more players might be slightly less favored by users, possibly because larger group games often involve longer play times or more complex coordination. However, since the correlation is close to zero, player count doesn’t strongly influence game rating overall. Game quality likely depends on many other factors like theme, mechanics and complexity rather than just the number of players.
+
+```{r}
+
+bgg |>
+  filter(users_rated > 1000) |>
+  mutate(avg_players = (min_players + max_players) / 2) |>
+  ggplot(aes(x = avg_players, y = rating_average)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth() +
+  labs(title = "Average Player Count vs. Rating")
+
+bgg |>
+  filter(users_rated > 1000) |>
+  mutate(avg_players = (min_players + max_players) / 2) |>
+  summarise(correlation = cor(avg_players, rating_average, use = "complete.obs"))
+
+```
+# 3 
+
+Q: What are the top-rated games in the most popular mechanics?
+
+A: Top mechanics include Dice Rolling, Hand Management, Hexagon Grid, Set Collection, and Variable Player Powers, which shows the most-popular gameplay styles that a great number of players enjoy. Some games, like Gloomhaven: Jaws of the Lion, rank highly across multiple popular mechanics, indicating that games which combine or excel in multiple mechanics tend to receive higher average ratings and attract many users.
+
+The presence of popular games within each mechanic category suggests that players gravitate toward games with rich and varied mechanics that provide engaging and complex experiences. The ratings (with an average for top being in the 800s) and number of users reflect these games are not just niche favorites but have broad appeal and strong community approval.
+```{r}
+
+top_mechanics <- bgg |>
+  filter(!is.na(mechanics)) |>
+  separate_rows(mechanics, sep = ", ") |>
+  count(mechanics, sort = TRUE) |>
+  slice_max(n, n = 5)
+
+bgg |>
+  filter(!is.na(mechanics)) |>
+  separate_rows(mechanics, sep = ", ") |>
+  semi_join(top_mechanics, by = "mechanics") |>
+  filter(users_rated > 1000) |>
+  group_by(mechanics) |>
+  slice_max(rating_average, n = 1) |>
+  select(name, mechanics, rating_average)
+```
+# 4 
+
+Q: What age group are the most highly rated games targeted at?
+
+A: The average rating for games generally increases as the minimum recommended age increases. Starting from min_age = 3, the average rating is 381.4, then steadily climbs with age: Age 5 games average 592.2, Age 7 games average 644.8, Age 10 games average 683.5. The count of games also increases sharply around age 8 and 10, meaning more games are designed for slightly older players.
+
+Games designed for older players tend to have higher average ratings. This could be because games taregtted for older kids/adults often have more complex rules and require more strategy that appeal to more experienced players. This could also be because kids get interested in playing board games at certain ages. 
+
+The higher volume of games targeted at ages 8 to 10+ also indicates this is a popular age group for board game designers and consumers. Overall, this trend follows common sense expectations: as players grow older, the games tend to be more engaging, which could explain higher user ratings.
+
+*Note: According to the graph and results, min_age of 0 or less has a sjyrocketing value, this seems to be incorrect and could be a result of incorrect cleaning, or rows meshing.
+
+```{r}
+
+# Create a summary table first and print it
+age_rating_summary <- bgg |>
+  filter(users_rated > 1000) |>
+  group_by(min_age) |>
+  summarise(
+    avg_rating = mean(rating_average, na.rm = TRUE),
+    count = n()
+  ) |>
+  arrange(min_age)  # Optional: sort by min_age
+
+print(age_rating_summary)  # This prints the numbers
+
+# Then plot using the summary table
+age_rating_summary |>
+  ggplot(aes(x = min_age, y = avg_rating)) +
+  geom_col() +
+  labs(title = "Average Rating by Minimum Recommended Age",
+       x = "Minimum Age",
+       y = "Average Rating")
+
+```
+# 5
+
+Q: Which year had the most highly-rated game releases? (Looks at the data from a more historical, soft-news lens)
+
+A: The average rating of games published increases in more recent years.
+Games published in 2020 have an average rating of 792.28. Games from 2011 have an average rating of about 696.34. The number of games published each year varies, with 2017 having the highest total games (200). 
+
+There seems to be a trend where newer games tend to receive higher average ratings. This might indicate improvements in game design or long-awaited quality changes. Alternatively, this could reflect a bias where newer games get more attention and reviews, or older games lose relevance and attract fewer ratings. The number of games published per year fluctuates, but recent years generally see more games, reflecting the growth of the board game industry.
+
+```{r}
+
+bgg |>
+  filter(users_rated > 1000) |>
+  group_by(year_published) |>
+  summarise(avg_rating = mean(rating_average, na.rm = TRUE),
+            total_games = n()) |>
+  filter(total_games >= 20) |>
+  arrange(desc(avg_rating)) |>
+  slice_head(n = 10)
+
+```
+
